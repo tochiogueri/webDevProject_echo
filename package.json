@@ -1,0 +1,26 @@
+{
+  "name": "echo-music-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ECHO: a music discovery and social playlist web app for the TU Dublin Web Development and Deployment pair project",
+  "main": "server/index.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test tests/*.test.js",
+    "seed": "node server/seed.js",
+    "check": "node --check server/index.js && node --check public/app.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "pg": "^8.13.1"
+  }
+}

@@ -1,0 +1,14 @@
+node_modules/
+.env
+*.log
+.DS_Store
+.vscode/
+coverage/
+
+# Local environment files
+.env.*
+!.env.example
+
+# Editor / operating system
+.idea/
+Thumbs.db
