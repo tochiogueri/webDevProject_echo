@@ -240,6 +240,7 @@ async function playlistDetail(id) {
     <div class="page-panel">${sectionHead('Tracklist', editable ? 'Add tracks from Discover or the Mix Lab.' : 'Press play to hear a preview.')}${trackRows(data.tracks, { remove: editable })}</div>`;
 }
 
+//DNA dashboard \
 async function dna() {
   main.innerHTML = `${heading('THE SOUNDS THAT MAKE YOU', 'Your music DNA.', 'A personal snapshot of your taste, built from your saved songs and your own playlists.')}
     <div id="dna-content"></div>`;
@@ -247,9 +248,85 @@ async function dna() {
   if (!state.user) { el.innerHTML = locked('Discover your music DNA', 'Create an account and save songs to see your real listening preferences.'); return; }
   const d = await api('/dna');
   const max = Math.max(1, ...d.genres.map(g => g.count));
+  //calculate the total number of songs across all genres 
+  const totalGenreSongs = d.genres.reduce((total, genre) => total + genre.count, 0);
+  //calculate the percentage of each genre
+  const genrePercentages = d.genres.map(genre => ({ name: genre.name, count: genre.count, percentage: totalGenreSongs > 0 ? Math.round((genre.count / totalGenreSongs) * 100) : 0 }));
   const topArtist = d.artists[0]?.name || 'Waiting to be discovered';
   const stats = [ ['SAVED TRACKS', d.totals.favorites], ['PLAYLISTS MADE', d.totals.playlists], ['MUSIC FRIENDS', d.totals.friends] ];
+  //build the genre chart from saved music 
+  let chartPosition = 0;
+
+  const genreColors = ['#b6f36a', '#aa8cff', '#ff8cba', '#ffc56d', '#70c9ff'];
+  
+  const chartSegments = genrePercentages.map((genre, index) => {
+    const percentage = totalGenreSongs > 0
+      ? (genre.count / totalGenreSongs) * 100
+      : 0;
+
+    const segment = `
+      <circle
+        cx="100"
+        cy="100"
+        r="72"
+        fill="none"
+        stroke="${genreColors[index % genreColors.length]}"
+        stroke-width="26"
+        pathLength="100"
+        stroke-dasharray="${percentage} 100"
+        stroke-dashoffset="${-chartPosition}"
+        transform="rotate(-90 100 100)"
+      />
+    `;
+
+    chartPosition += percentage;
+    return segment;
+  }).join('');
+
+
+  const chartBackground = totalGenreSongs > 0 ? `conic-gradient(${chartSegments})` : '#333';
+  console.log("Total genre songs:", totalGenreSongs);
+  console.log("Chart segments:", chartSegments);
+  console.log("chart background:", chartBackground);
   el.innerHTML = `<div class="stat-grid">${stats.map(([name, n]) => `<div class="stat-card"><span>${name}</span><strong>${n}<i>.</i></strong></div>`).join('')}</div>
+  <div class="page-panel">
+    <h2 class="subheading">Your Genre Distribution</h2>
+
+   
+<div class="genre-chart-container">
+  <svg class="genre-chart"
+       viewBox="0 0 200 200"
+       role="img"
+       aria-label="Genre distribution chart">
+    ${chartSegments}
+    <circle cx="100" cy="100" r="56"
+            class="genre-chart-center" />
+    <text x="100" y="105"
+          class="genre-chart-label"
+          text-anchor="middle">
+      Your Sound
+    </text>
+  </svg>
+  
+  <div class="genre-legend">
+    ${genrePercentages.map((genre, index) => `
+      <div class="genre-legend-item">
+        <span class="genre-dot genre-color-${index % 5}"></span>
+        <span class="genre-name">${String(genre.name ?? '').replace(/[&<>"']/g, char => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        })[char])}</span>
+        <strong>${genre.percentage}%</strong>
+      </div>
+    `).join('')}
+  </div>
+</div>
+
+  </div>
+
     <div class="dna-grid"><div class="page-panel"><h2 class="subheading">Your top genres</h2>
       ${d.genres.length ? d.genres.map((g, i) => `<div class="bar-item"><div class="bar-title"><strong>${String(i+1).padStart(2,'0')} · ${escapeHTML(g.name)}</strong><span>${g.count} saved</span></div><div class="bar-bg"><div class="bar-fill ${i%2 ? 'alt' : ''}" style="width:${100*g.count/max}%"></div></div></div>`).join('') : '<p class="intro-copy">Save a few tracks to see your genre breakdown.</p>'}</div>
       <div class="page-panel"><h2 class="subheading">Artists on your wavelength</h2>
