@@ -91,3 +91,67 @@
 .genre-color-2 { background: #ff8cba; }
 .genre-color-3 { background: #ffc56d; }
 .genre-color-4 { background: #70c9ff; }
+
+/* spacing above music DNA genre ditribution */
+.page-panel:has(.genre-chart-container) {
+  margin-top: 20px;
+}
+
+
+/* Recent Searches */
+.recent-searches {
+  margin: 28px 0;
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+}
+
+.recent-searches-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.recent-searches-header h3 {
+  margin: 0;
+}
+
+#recent-search-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.recent-search-item {
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f5;
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.recent-search-item:hover {
+  background: rgba(182, 243, 106, 0.15);
+  border-color: #b6f36a;
+}
+
+.recent-search-item:focus-visible {
+  outline: 2px solid #b6f36a;
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .recent-searches {
+    padding: 16px;
+  }
+
+  .recent-searches-header {
+    flex-wrap: wrap;
+  }
+}

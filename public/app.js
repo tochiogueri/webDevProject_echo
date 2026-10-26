@@ -15,11 +15,69 @@ const audio = new Audio();
 audio.volume = 0.7;
 
 const state = {
-  user: null, view: 'home', search: '', genre: 'all', sort: 'relevance',
+  user: null, view: 'home', search: '', recentResearchs: [], genre: 'all', sort: 'relevance',
   libraryTab: 'mine', mood: 'chill', generated: null, detail: null,
   tracks: new Map(), favorites: new Set(), playlists: [], queue: [], currentIndex: 0,
   recorder: null, microphoneStream: null
 };
+
+
+function saveRecentSearch(query) {
+  const search = query.trim();
+
+  if (!search) return;
+
+  // Remove duplicates, ignoring capital letters
+  state.recentSearches = state.recentSearches.filter(
+    item => item.toLowerCase() !== search.toLowerCase()
+  );
+
+  // Put the newest search first and keep only five
+  state.recentSearches.unshift(search);
+  state.recentSearches = state.recentSearches.slice(0, 5);
+
+  // Save searches in the browser
+  localStorage.setItem(
+    'echoRecentSearches',
+    JSON.stringify(state.recentSearches)
+  );
+}
+
+function renderRecentSearches() {
+  const list = document.querySelector('#recent-search-list');
+
+  if (!list) return;
+
+  list.replaceChildren();
+
+  state.recentSearches.forEach((search) => {
+    const button = document.createElement('button');
+
+    button.type = 'button';
+    button.className = 'recent-search-item';
+    button.textContent = search;
+    button.dataset.action = 'repeat-search';
+    button.dataset.query = search;
+
+    list.appendChild(button);
+  });
+}
+
+
+try {
+  const savedSearches = JSON.parse(
+    localStorage.getItem('echoRecentSearches') || '[]'
+  );
+
+  if (Array.isArray(savedSearches)) {
+    state.recentSearches = savedSearches
+      .filter(item => typeof item === 'string')
+      .slice(0, 5);
+  }
+} catch {
+  state.recentSearches = [];
+}
+
 
 // The demo tracks appear only if Apple's public music API cannot be reached.
 // Demo rows are clearly labeled and cannot be saved or played.
@@ -164,19 +222,49 @@ async function home() {
 
 async function discover() {
   main.innerHTML = `${heading('THE GOOD STUFF', 'Discover your next favorite.', 'Search the live iTunes music catalogue, listen to previews, and save what you love.')}
-    <div class="toolbar"><input id="discover-query" class="field" placeholder="Try an artist, album or song..." value="${escapeHTML(state.search || 'indie pop')}" aria-label="Music search query">
+    <div class="toolbar"><input id="discover-query" class="field" placeholder="Search songs, artists or albums..." value="${escapeHTML(state.search || '')}" aria-label="Music search query">
     <select id="genre-filter" class="field" aria-label="Filter by genre"><option value="all">All genres</option><option value="pop">Pop</option><option value="rock">Rock</option><option value="hip-hop">Hip-Hop</option><option value="r&b">R&B</option><option value="dance">Dance</option><option value="alternative">Alternative</option><option value="jazz">Jazz</option><option value="country">Country</option></select>
     <select id="sort-filter" class="field" aria-label="Sort music"><option value="relevance">Most relevant</option><option value="artist">Artist A-Z</option><option value="title">Title A-Z</option></select>
     <button class="button" data-action="search-music">Search ↗</button></div>
     <section class="section" style="margin-top:22px">${sectionHead('Tracks to explore', 'Search by title or artist, then filter results.')}
+
+    <section class="recent-searches">
+      <div class="recent-searches-header">
+        <h3>Recent Searches</h3>
+        <button class="button" data-action="clear-recent">
+          Clear All
+        </button>
+      </div>
+      <div id="recent-search-list"></div>
+    </section>
       <div id="discover-results" class="loading-note">Searching...</div></section>`;
   document.querySelector('#genre-filter').value = state.genre;
   document.querySelector('#sort-filter').value = state.sort;
-  await searchDiscover();
+  
+  const results = document.querySelector('#discover-results');
+
+  if (results) {
+    results.innerHTML = '<p class="loading-note">Search for a song or artist to discover music.</p>';
+  }
+
+  renderRecentSearches();
 }
+
 async function searchDiscover() {
-  const query = document.querySelector('#discover-query')?.value.trim() || 'indie pop';
+  //console.log("ECHO SEARCH FUNCTION IS RUNNING"); 
+  const enteredQuery = document.querySelector('#discover-query')?.value.trim() || '';
+
+  const query = enteredQuery;
   state.search = query;
+
+  // Only save searches typed by the user
+  if (enteredQuery) {
+    saveRecentSearch(enteredQuery);
+    renderRecentSearches();
+  }
+
+
+  //console.log("Recent searches saved:", state.recentSearches);
   state.genre = document.querySelector('#genre-filter')?.value || 'all';
   state.sort = document.querySelector('#sort-filter')?.value || 'relevance';
   const result = document.querySelector('#discover-results');
@@ -587,6 +675,20 @@ document.addEventListener('click', async event => {
     else if (action === 'show-register') openAuth('register');
     else if (action === 'account') openAccount();
     else if (action === 'search-music') await searchDiscover();
+    else if (action === 'repeat-search') {
+      const query = b.dataset.query;
+      const searchInput = document.querySelector('#discover-query');
+
+      if (searchInput && query) {
+        searchInput.value = query;
+        await searchDiscover();
+      }
+    }
+    else if (action === 'clear-recent') {
+      state.recentSearches = [];
+      localStorage.removeItem('echoRecentSearches');
+      renderRecentSearches();
+    }
     else if (action === 'play') playTrack(id);
     else if (action === 'favorite') await favorite(id);
     else if (action === 'add-track') await openAddTrack(id);
