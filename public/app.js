@@ -254,7 +254,12 @@ async function searchDiscover() {
   //console.log("ECHO SEARCH FUNCTION IS RUNNING"); 
   const enteredQuery = document.querySelector('#discover-query')?.value.trim() || '';
 
-  const query = enteredQuery;
+ const selectedGenre =
+  document.querySelector('#genre-filter')?.value || 'all';
+
+  const query = enteredQuery || (
+  selectedGenre !== 'all' ? selectedGenre : ''
+);
   state.search = query;
 
   // Only save searches typed by the user
@@ -269,7 +274,8 @@ async function searchDiscover() {
   state.sort = document.querySelector('#sort-filter')?.value || 'relevance';
   const result = document.querySelector('#discover-results');
   if (!result) return;
-  result.innerHTML = '<div class="loading-note">Searching the music universe...</div>';
+  if (!query)
+    { result.innerHTML = '<div class="loading-note">Search for a song or genre to discover music.</div>'; return; }
   try {
     const data = await api(`/music/search?q=${encodeURIComponent(query)}&genre=${encodeURIComponent(state.genre)}&sort=${encodeURIComponent(state.sort)}`);
     state.queue = storeTracks(data.tracks);
@@ -664,6 +670,42 @@ document.querySelector('#volume').addEventListener('input', e => audio.volume = 
 document.querySelector('#seek').addEventListener('input', e => { if (audio.duration) audio.currentTime = Number(e.target.value) * audio.duration / 100; });
 
 // One click listener for ALL dynamically added buttons.
+// Mobile hamburger menu //
+const hamburgerButton = document.querySelector('#hamburger-button');
+const mobileMenu = document.querySelector('#mobile-menu');
+
+function closeMobileMenu() {
+  mobileMenu.hidden = true;
+  hamburgerButton.setAttribute('aria-expanded', 'false');
+  hamburgerButton.setAttribute('aria-label', 'Open navigation menu');
+  hamburgerButton.textContent = '☰';
+}
+
+hamburgerButton.addEventListener('click', () => {
+  const isOpening = mobileMenu.hidden;
+
+  mobileMenu.hidden = !isOpening;
+  hamburgerButton.setAttribute('aria-expanded', String(isOpening));
+  hamburgerButton.setAttribute(
+    'aria-label',
+    isOpening ? 'Close navigation menu' : 'Open navigation menu'
+  );
+  hamburgerButton.textContent = isOpening ? '✕' : '☰';
+});
+
+mobileMenu.addEventListener('click', event => {
+  if (event.target.closest('[data-nav]')) {
+    closeMobileMenu();
+  }
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !mobileMenu.hidden) {
+    closeMobileMenu();
+    hamburgerButton.focus();
+  }
+});
+
 document.addEventListener('click', async event => {
   const b = event.target.closest('[data-action],[data-nav]');
   if (!b) return;
@@ -784,13 +826,13 @@ document.addEventListener('submit', async event => {
   finally { if (submit) submit.disabled = false; }
 });
 
-document.querySelector('#global-search').addEventListener('keydown', async event => {
+/*document.querySelector('#global-search').addEventListener('keydown', async event => {
   if (event.key !== 'Enter') return;
   const q = event.target.value.trim();
   if (!q) return;
   state.search = q; state.genre = 'all';
   await loadView('discover');
-});
+});*/
 document.addEventListener('keydown', async event => {
   if (event.key === 'Enter' && event.target.id === 'discover-query') await searchDiscover();
   if (event.key === 'Enter' && event.target.id === 'user-query') await searchUsers();
