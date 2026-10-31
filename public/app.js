@@ -15,11 +15,69 @@ const audio = new Audio();
 audio.volume = 0.7;
 
 const state = {
-  user: null, view: 'home', search: '', genre: 'all', sort: 'relevance',
+  user: null, view: 'home', search: '', recentResearchs: [], genre: 'all', sort: 'relevance',
   libraryTab: 'mine', mood: 'chill', generated: null, detail: null,
   tracks: new Map(), favorites: new Set(), playlists: [], queue: [], currentIndex: 0,
   recorder: null, microphoneStream: null
 };
+
+
+function saveRecentSearch(query) {
+  const search = query.trim();
+
+  if (!search) return;
+
+  // Remove duplicates, ignoring capital letters
+  state.recentSearches = state.recentSearches.filter(
+    item => item.toLowerCase() !== search.toLowerCase()
+  );
+
+  // Put the newest search first and keep only five
+  state.recentSearches.unshift(search);
+  state.recentSearches = state.recentSearches.slice(0, 5);
+
+  // Save searches in the browser
+  localStorage.setItem(
+    'echoRecentSearches',
+    JSON.stringify(state.recentSearches)
+  );
+}
+
+function renderRecentSearches() {
+  const list = document.querySelector('#recent-search-list');
+
+  if (!list) return;
+
+  list.replaceChildren();
+
+  state.recentSearches.forEach((search) => {
+    const button = document.createElement('button');
+
+    button.type = 'button';
+    button.className = 'recent-search-item';
+    button.textContent = search;
+    button.dataset.action = 'repeat-search';
+    button.dataset.query = search;
+
+    list.appendChild(button);
+  });
+}
+
+
+try {
+  const savedSearches = JSON.parse(
+    localStorage.getItem('echoRecentSearches') || '[]'
+  );
+
+  if (Array.isArray(savedSearches)) {
+    state.recentSearches = savedSearches
+      .filter(item => typeof item === 'string')
+      .slice(0, 5);
+  }
+} catch {
+  state.recentSearches = [];
+}
+
 
 // The demo tracks appear only if Apple's public music API cannot be reached.
 // Demo rows are clearly labeled and cannot be saved or played.
@@ -164,24 +222,60 @@ async function home() {
 
 async function discover() {
   main.innerHTML = `${heading('THE GOOD STUFF', 'Discover your next favorite.', 'Search the live iTunes music catalogue, listen to previews, and save what you love.')}
-    <div class="toolbar"><input id="discover-query" class="field" placeholder="Try an artist, album or song..." value="${escapeHTML(state.search || 'indie pop')}" aria-label="Music search query">
+    <div class="toolbar"><input id="discover-query" class="field" placeholder="Search songs, artists or albums..." value="${escapeHTML(state.search || '')}" aria-label="Music search query">
     <select id="genre-filter" class="field" aria-label="Filter by genre"><option value="all">All genres</option><option value="pop">Pop</option><option value="rock">Rock</option><option value="hip-hop">Hip-Hop</option><option value="r&b">R&B</option><option value="dance">Dance</option><option value="alternative">Alternative</option><option value="jazz">Jazz</option><option value="country">Country</option></select>
     <select id="sort-filter" class="field" aria-label="Sort music"><option value="relevance">Most relevant</option><option value="artist">Artist A-Z</option><option value="title">Title A-Z</option></select>
     <button class="button" data-action="search-music">Search ↗</button></div>
     <section class="section" style="margin-top:22px">${sectionHead('Tracks to explore', 'Search by title or artist, then filter results.')}
+
+    <section class="recent-searches">
+      <div class="recent-searches-header">
+        <h3>Recent Searches</h3>
+        <button class="button" data-action="clear-recent">
+          Clear All
+        </button>
+      </div>
+      <div id="recent-search-list"></div>
+    </section>
       <div id="discover-results" class="loading-note">Searching...</div></section>`;
   document.querySelector('#genre-filter').value = state.genre;
   document.querySelector('#sort-filter').value = state.sort;
-  await searchDiscover();
+  
+  const results = document.querySelector('#discover-results');
+
+  if (results) {
+    results.innerHTML = '<p class="loading-note">Search for a song or artist to discover music.</p>';
+  }
+
+  renderRecentSearches();
 }
+
 async function searchDiscover() {
-  const query = document.querySelector('#discover-query')?.value.trim() || 'indie pop';
+  //console.log("ECHO SEARCH FUNCTION IS RUNNING"); 
+  const enteredQuery = document.querySelector('#discover-query')?.value.trim() || '';
+
+ const selectedGenre =
+  document.querySelector('#genre-filter')?.value || 'all';
+
+  const query = enteredQuery || (
+  selectedGenre !== 'all' ? selectedGenre : ''
+);
   state.search = query;
+
+  // Only save searches typed by the user
+  if (enteredQuery) {
+    saveRecentSearch(enteredQuery);
+    renderRecentSearches();
+  }
+
+
+  //console.log("Recent searches saved:", state.recentSearches);
   state.genre = document.querySelector('#genre-filter')?.value || 'all';
   state.sort = document.querySelector('#sort-filter')?.value || 'relevance';
   const result = document.querySelector('#discover-results');
   if (!result) return;
-  result.innerHTML = '<div class="loading-note">Searching the music universe...</div>';
+  if (!query)
+    { result.innerHTML = '<div class="loading-note">Search for a song or genre to discover music.</div>'; return; }
   try {
     const data = await api(`/music/search?q=${encodeURIComponent(query)}&genre=${encodeURIComponent(state.genre)}&sort=${encodeURIComponent(state.sort)}`);
     state.queue = storeTracks(data.tracks);
@@ -240,6 +334,7 @@ async function playlistDetail(id) {
     <div class="page-panel">${sectionHead('Tracklist', editable ? 'Add tracks from Discover or the Mix Lab.' : 'Press play to hear a preview.')}${trackRows(data.tracks, { remove: editable })}</div>`;
 }
 
+//DNA dashboard \
 async function dna() {
   main.innerHTML = `${heading('THE SOUNDS THAT MAKE YOU', 'Your music DNA.', 'A personal snapshot of your taste, built from your saved songs and your own playlists.')}
     <div id="dna-content"></div>`;
@@ -247,9 +342,85 @@ async function dna() {
   if (!state.user) { el.innerHTML = locked('Discover your music DNA', 'Create an account and save songs to see your real listening preferences.'); return; }
   const d = await api('/dna');
   const max = Math.max(1, ...d.genres.map(g => g.count));
+  //calculate the total number of songs across all genres 
+  const totalGenreSongs = d.genres.reduce((total, genre) => total + genre.count, 0);
+  //calculate the percentage of each genre
+  const genrePercentages = d.genres.map(genre => ({ name: genre.name, count: genre.count, percentage: totalGenreSongs > 0 ? Math.round((genre.count / totalGenreSongs) * 100) : 0 }));
   const topArtist = d.artists[0]?.name || 'Waiting to be discovered';
   const stats = [ ['SAVED TRACKS', d.totals.favorites], ['PLAYLISTS MADE', d.totals.playlists], ['MUSIC FRIENDS', d.totals.friends] ];
+  //build the genre chart from saved music 
+  let chartPosition = 0;
+
+  const genreColors = ['#b6f36a', '#aa8cff', '#ff8cba', '#ffc56d', '#70c9ff'];
+  
+  const chartSegments = genrePercentages.map((genre, index) => {
+    const percentage = totalGenreSongs > 0
+      ? (genre.count / totalGenreSongs) * 100
+      : 0;
+
+    const segment = `
+      <circle
+        cx="100"
+        cy="100"
+        r="72"
+        fill="none"
+        stroke="${genreColors[index % genreColors.length]}"
+        stroke-width="26"
+        pathLength="100"
+        stroke-dasharray="${percentage} 100"
+        stroke-dashoffset="${-chartPosition}"
+        transform="rotate(-90 100 100)"
+      />
+    `;
+
+    chartPosition += percentage;
+    return segment;
+  }).join('');
+
+
+  const chartBackground = totalGenreSongs > 0 ? `conic-gradient(${chartSegments})` : '#333';
+  console.log("Total genre songs:", totalGenreSongs);
+  console.log("Chart segments:", chartSegments);
+  console.log("chart background:", chartBackground);
   el.innerHTML = `<div class="stat-grid">${stats.map(([name, n]) => `<div class="stat-card"><span>${name}</span><strong>${n}<i>.</i></strong></div>`).join('')}</div>
+  <div class="page-panel">
+    <h2 class="subheading">Your Genre Distribution</h2>
+
+   
+<div class="genre-chart-container">
+  <svg class="genre-chart"
+       viewBox="0 0 200 200"
+       role="img"
+       aria-label="Genre distribution chart">
+    ${chartSegments}
+    <circle cx="100" cy="100" r="56"
+            class="genre-chart-center" />
+    <text x="100" y="105"
+          class="genre-chart-label"
+          text-anchor="middle">
+      Your Sound
+    </text>
+  </svg>
+  
+  <div class="genre-legend">
+    ${genrePercentages.map((genre, index) => `
+      <div class="genre-legend-item">
+        <span class="genre-dot genre-color-${index % 5}"></span>
+        <span class="genre-name">${String(genre.name ?? '').replace(/[&<>"']/g, char => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        })[char])}</span>
+        <strong>${genre.percentage}%</strong>
+      </div>
+    `).join('')}
+  </div>
+</div>
+
+  </div>
+
     <div class="dna-grid"><div class="page-panel"><h2 class="subheading">Your top genres</h2>
       ${d.genres.length ? d.genres.map((g, i) => `<div class="bar-item"><div class="bar-title"><strong>${String(i+1).padStart(2,'0')} · ${escapeHTML(g.name)}</strong><span>${g.count} saved</span></div><div class="bar-bg"><div class="bar-fill ${i%2 ? 'alt' : ''}" style="width:${100*g.count/max}%"></div></div></div>`).join('') : '<p class="intro-copy">Save a few tracks to see your genre breakdown.</p>'}</div>
       <div class="page-panel"><h2 class="subheading">Artists on your wavelength</h2>
@@ -499,6 +670,42 @@ document.querySelector('#volume').addEventListener('input', e => audio.volume = 
 document.querySelector('#seek').addEventListener('input', e => { if (audio.duration) audio.currentTime = Number(e.target.value) * audio.duration / 100; });
 
 // One click listener for ALL dynamically added buttons.
+// Mobile hamburger menu //
+const hamburgerButton = document.querySelector('#hamburger-button');
+const mobileMenu = document.querySelector('#mobile-menu');
+
+function closeMobileMenu() {
+  mobileMenu.hidden = true;
+  hamburgerButton.setAttribute('aria-expanded', 'false');
+  hamburgerButton.setAttribute('aria-label', 'Open navigation menu');
+  hamburgerButton.textContent = '☰';
+}
+
+hamburgerButton.addEventListener('click', () => {
+  const isOpening = mobileMenu.hidden;
+
+  mobileMenu.hidden = !isOpening;
+  hamburgerButton.setAttribute('aria-expanded', String(isOpening));
+  hamburgerButton.setAttribute(
+    'aria-label',
+    isOpening ? 'Close navigation menu' : 'Open navigation menu'
+  );
+  hamburgerButton.textContent = isOpening ? '✕' : '☰';
+});
+
+mobileMenu.addEventListener('click', event => {
+  if (event.target.closest('[data-nav]')) {
+    closeMobileMenu();
+  }
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !mobileMenu.hidden) {
+    closeMobileMenu();
+    hamburgerButton.focus();
+  }
+});
+
 document.addEventListener('click', async event => {
   const b = event.target.closest('[data-action],[data-nav]');
   if (!b) return;
@@ -510,6 +717,20 @@ document.addEventListener('click', async event => {
     else if (action === 'show-register') openAuth('register');
     else if (action === 'account') openAccount();
     else if (action === 'search-music') await searchDiscover();
+    else if (action === 'repeat-search') {
+      const query = b.dataset.query;
+      const searchInput = document.querySelector('#discover-query');
+
+      if (searchInput && query) {
+        searchInput.value = query;
+        await searchDiscover();
+      }
+    }
+    else if (action === 'clear-recent') {
+      state.recentSearches = [];
+      localStorage.removeItem('echoRecentSearches');
+      renderRecentSearches();
+    }
     else if (action === 'play') playTrack(id);
     else if (action === 'favorite') await favorite(id);
     else if (action === 'add-track') await openAddTrack(id);
@@ -605,13 +826,13 @@ document.addEventListener('submit', async event => {
   finally { if (submit) submit.disabled = false; }
 });
 
-document.querySelector('#global-search').addEventListener('keydown', async event => {
+/*document.querySelector('#global-search').addEventListener('keydown', async event => {
   if (event.key !== 'Enter') return;
   const q = event.target.value.trim();
   if (!q) return;
   state.search = q; state.genre = 'all';
   await loadView('discover');
-});
+});*/
 document.addEventListener('keydown', async event => {
   if (event.key === 'Enter' && event.target.id === 'discover-query') await searchDiscover();
   if (event.key === 'Enter' && event.target.id === 'user-query') await searchUsers();

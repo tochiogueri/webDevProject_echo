@@ -42,10 +42,27 @@
 
     <div class="main-column">
       <header class="topbar">
+        <button
+          class="hamburger"
+          id="hamburger-button"
+          type="button"
+          aria-label="Open navigation menu"
+          aria-expanded="false"
+          aria-controls="mobile-menu">
+          ☰
+        </button>
         <div class="mobile-brand"><span class="brand-symbol small"><span></span><span></span><span></span><span></span></span> ECHO<span class="brand-dot">.</span></div>
-        <div class="search-shell"><span>⌕</span><input id="global-search" type="search" aria-label="Search for a song or artist" placeholder="Search songs, artists, your next favorite..." autocomplete="off"><kbd>↵</kbd></div>
         <div class="topbar-right"><span class="topbar-tag"><span class="online-dot"></span> YOUR MUSIC, YOUR UNIVERSE</span><button class="avatar-button" id="account-button" data-action="account" aria-label="Account">↗</button></div>
       </header>
+          <nav id="mobile-menu" class="mobile-menu" aria-label="Collapsible mobile navigation" hidden>
+        <button data-nav="home">⌂ Home</button>
+        <button data-nav="discover">◎ Discover</button>
+        <button data-nav="playlists">▤ My Library</button>
+        <button data-nav="generator">✳ Mix Lab</button>
+        <button data-nav="dna">◈ Music DNA</button>
+        <button data-nav="connect">☷ Connect</button>
+        <button data-nav="recognize">◉ Recognize</button>
+      </nav>
       <main id="main-content" tabindex="-1" aria-live="polite"></main>
       <footer class="page-footer">ECHO / FIND YOUR FREQUENCY <span>BUILT WITH MUSIC AND A LITTLE OBSESSION ✳</span></footer>
     </div>
