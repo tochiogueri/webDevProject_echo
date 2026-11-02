@@ -15,7 +15,7 @@ const audio = new Audio();
 audio.volume = 0.7;
 
 const state = {
-  user: null, view: 'home', search: '', recentResearchs: [], genre: 'all', sort: 'relevance',
+  user: null, view: 'home', search: '', recentSearches: [], genre: 'all', sort: 'relevance',
   libraryTab: 'mine', mood: 'chill', generated: null, detail: null,
   tracks: new Map(), favorites: new Set(), playlists: [], queue: [], currentIndex: 0,
   recorder: null, microphoneStream: null
